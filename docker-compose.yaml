@@ -1,0 +1,68 @@
+# nginx proxy address - http://172.17.0.1:59086
+
+name: coder
+x-logging: &default-logging
+  options:
+    max-size: '5m'
+    max-file: '1'
+  driver: json-file
+
+services:
+  app:
+    image: ghcr.io/coder/coder:latest
+    container_name: coder-app
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
+    restart: always
+    pull_policy: always
+    user: root
+    logging: *default-logging
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - CODER_TELEMETRY=false
+      - CODER_EXPERIMENTS=notifications
+      - CODER_NOTIFICATIONS_METHOD=smtp
+      - CODER_HTTP_ADDRESS=0.0.0.0:7080
+      - CODER_ACCESS_URL=https://${BASE_HOST_NAME}
+      - CODER_WILDCARD_ACCESS_URL=*.${BASE_HOST_NAME}
+      - CODER_EMAIL_TLS_STARTTLS=true
+      - CODER_EMAIL_FROM=no-reply@${BASE_HOST_NAME}
+      - CODER_EMAIL_HELLO=${BASE_HOST_NAME:-$HOSTNAME}
+      - CODER_EMAIL_SMARTHOST=${EMAIL_SERVER_HOST:-127.17.0.1}:${EMAIL_SERVER_PORT:-25}
+      - CODER_PG_CONNECTION_URL=postgresql://postgres:0ph7ZIOy8pwxVuFoovMwnC285d54CYj4@coder-db/coder?sslmode=disable
+    ports:
+      - '172.17.0.1:59086:7080'
+    volumes:
+      - './rootfs/config/coder:/home/coder/.config'
+      - '/var/run/docker.sock:/var/run/docker.sock'
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - coder
+
+  db:
+    image: 'postgres:16'
+    container_name: coder-db
+    hostname: coder-db
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - POSTGRES_DB=coder
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=0ph7ZIOy8pwxVuFoovMwnC285d54CYj4
+    volumes:
+      - './rootfs/db/postgres:/var/lib/postgresql/data'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d coder']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - coder
+
+networks:
+  coder:
+    name: coder
+    external: false

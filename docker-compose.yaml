@@ -53,7 +53,7 @@ services:
       POSTGRES_USER: ${DB_ADMIN_NAME:-postgres}
       POSTGRES_PASSWORD: ${DB_ADMIN_PASS:-0ph7ZIOy8pwxVuFoovMwnC285d54CYj4}
     volumes:
-      - './rootfs/db/postgres/coder:/var/lib/postgresql/data'
+      - './rootfs/data/db/postgres/coder:/var/lib/postgresql/data'
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${DB_ADMIN_NAME:-postgres} -d ${DB_CREATE_DATABASE_NAME:-coder}']
       interval: 5s

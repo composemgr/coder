@@ -32,7 +32,7 @@ services:
     ports:
       - '172.17.0.1:59086:7080'
     volumes:
-      - './rootfs/config/coder:/home/coder/.config'
+      - './volumes/config/coder:/home/coder/.config'
       - '/var/run/docker.sock:/var/run/docker.sock'
     depends_on:
       db:
@@ -53,7 +53,7 @@ services:
       POSTGRES_USER: ${DB_ADMIN_NAME:-postgres}
       POSTGRES_PASSWORD: ${DB_ADMIN_PASS:-0ph7ZIOy8pwxVuFoovMwnC285d54CYj4}
     volumes:
-      - './rootfs/data/db/postgres/coder:/var/lib/postgresql/data'
+      - './volumes/data/db/postgres/coder:/var/lib/postgresql/data'
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${DB_ADMIN_NAME:-postgres} -d ${DB_CREATE_DATABASE_NAME:-coder}']
       interval: 5s

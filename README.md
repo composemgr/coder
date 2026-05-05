@@ -41,8 +41,8 @@ BASE_DOMAIN_NAME=
 
 ## 📂 Volumes
 
-- `./rootfs/config/coder` - Configuration files
-- `./rootfs/data/coder` - Application data
+- `./volumes/config/coder` - Configuration files
+- `./volumes/data/coder` - Application data
 
 ## 🔐 Security
 

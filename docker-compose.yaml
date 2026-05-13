@@ -29,6 +29,8 @@ services:
       CODER_EMAIL_HELLO: ${BASE_HOST_NAME:-$HOSTNAME}
       CODER_EMAIL_SMARTHOST: ${EMAIL_SERVER_HOST:-172.17.0.1}:${EMAIL_SERVER_PORT:-587}
       CODER_PG_CONNECTION_URL: postgresql://postgres:${DB_ADMIN_PASS:-0ph7ZIOy8pwxVuFoovMwnC285d54CYj4}@coder-db/coder?sslmode=disable
+      CONTAINER_NAME: coder-app
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
     ports:
       - '172.17.0.1:59086:7080'
     volumes:
@@ -39,6 +41,24 @@ services:
         condition: service_healthy
     networks:
       - coder
+      - proxy
+      - cloudflare
+    labels:
+      - 'traefik.enable=true'
+      - 'cloudflare.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'cloudflare.service=http://coder-app:7080'
+      - 'cloudflare.hostname=coder.${CLOUDFLARE_ZONE_NAME:-}'
+      - 'traefik.http.routers.coder-app.entrypoints=http'
+      - 'traefik.http.routers.coder-app-secure.tls=true'
+      - 'traefik.http.routers.coder-app.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.middlewares.coder-app-https-redirect.redirectscheme.scheme=https'
+      - 'traefik.http.routers.coder-app.middlewares=coder-app-https-redirect'
+      - 'traefik.http.routers.coder-app-secure.entrypoints=https'
+      - 'traefik.http.routers.coder-app-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.routers.coder-app-secure.tls.certresolver=cloudflare'
+      - 'traefik.http.routers.coder-app-secure.service=coder-app'
+      - 'traefik.http.services.coder-app.loadbalancer.server.port=7080'
 
   db:
     image: 'postgres:16'
@@ -52,6 +72,7 @@ services:
       POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-coder}
       POSTGRES_USER: ${DB_ADMIN_NAME:-postgres}
       POSTGRES_PASSWORD: ${DB_ADMIN_PASS:-0ph7ZIOy8pwxVuFoovMwnC285d54CYj4}
+      CONTAINER_NAME: coder-db
     volumes:
       - './volumes/data/db/postgres/coder:/var/lib/postgresql/data'
     healthcheck:
@@ -66,3 +87,7 @@ networks:
   coder:
     name: coder
     external: false
+  proxy:
+    external: true
+  cloudflare:
+    external: true

@@ -1,4 +1,4 @@
-# nginx proxy address - http://172.17.0.1:59086
+# nginx proxy address - http://172.17.0.1:64140
 
 name: coder
 x-logging: &default-logging
@@ -11,58 +11,39 @@ services:
   app:
     image: ghcr.io/coder/coder:latest
     container_name: coder-app
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
     hostname: ${BASE_HOST_NAME:-$HOSTNAME}
     restart: always
     pull_policy: always
-    user: root
     logging: *default-logging
     environment:
       TZ: ${TZ:-America/New_York}
-      CODER_TELEMETRY: false
-      CODER_EXPERIMENTS: notifications
-      CODER_NOTIFICATIONS_METHOD: smtp
-      CODER_HTTP_ADDRESS: 0.0.0.0:7080
-      CODER_ACCESS_URL: https://${BASE_HOST_NAME:-localhost}
-      CODER_WILDCARD_ACCESS_URL: *.${BASE_HOST_NAME:-localhost}
-      CODER_EMAIL_TLS_STARTTLS: true
-      CODER_EMAIL_FROM: ${EMAIL_SERVER_MAIL_FROM:-no-reply@${BASE_DOMAIN_NAME:-${BASE_HOST_NAME}}}
-      CODER_EMAIL_HELLO: ${BASE_HOST_NAME:-$HOSTNAME}
-      CODER_EMAIL_SMARTHOST: ${EMAIL_SERVER_HOST:-172.17.0.1}:${EMAIL_SERVER_PORT:-587}
-      CODER_PG_CONNECTION_URL: postgresql://postgres:${DB_ADMIN_PASS:-0ph7ZIOy8pwxVuFoovMwnC285d54CYj4}@coder-db/coder?sslmode=disable
+      CODER_AGENT_URL: http://${BASE_HOST_NAME:-$HOSTNAME}
+      CODER_ACCESS_URL: http://${BASE_HOST_NAME:-$HOSTNAME}
+      CODER_PG_CONNECTION_URL: postgres://${DB_USER_NAME:-coder}:${DB_USER_PASS:-replace-with-a-random-password}@coder-db/${DB_CREATE_DATABASE_NAME:-coder}?sslmode=disable
+      CODER_TLS: self-signed
       CONTAINER_NAME: coder-app
       HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
     ports:
-      - '172.17.0.1:59086:7080'
+      - '172.17.0.1:64140:7080'
     volumes:
       - './volumes/config/coder:/home/coder/.config'
       - '/var/run/docker.sock:/var/run/docker.sock'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     depends_on:
       db:
         condition: service_healthy
     networks:
       - coder
-      - proxy
-      - cloudflare
-    labels:
-      - 'traefik.enable=true'
-      - 'cloudflare.enable=true'
-      - 'traefik.docker.network=proxy'
-      - 'cloudflare.service=http://coder-app:7080'
-      - 'cloudflare.hostname=coder.${CLOUDFLARE_ZONE_NAME:-}'
-      - 'traefik.http.routers.coder-app.entrypoints=http'
-      - 'traefik.http.routers.coder-app-secure.tls=true'
-      - 'traefik.http.routers.coder-app.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
-      - 'traefik.http.middlewares.coder-app-https-redirect.redirectscheme.scheme=https'
-      - 'traefik.http.routers.coder-app.middlewares=coder-app-https-redirect'
-      - 'traefik.http.routers.coder-app-secure.entrypoints=https'
-      - 'traefik.http.routers.coder-app-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
-      - 'traefik.http.routers.coder-app-secure.tls.certresolver=cloudflare'
-      - 'traefik.http.routers.coder-app-secure.service=coder-app'
-      - 'traefik.http.services.coder-app.loadbalancer.server.port=7080'
 
   db:
-    image: 'postgres:16'
+    image: postgres:16
     container_name: coder-db
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
     hostname: coder-db
     restart: always
     pull_policy: always
@@ -70,16 +51,16 @@ services:
     environment:
       TZ: ${TZ:-America/New_York}
       POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-coder}
-      POSTGRES_USER: ${DB_ADMIN_NAME:-postgres}
-      POSTGRES_PASSWORD: ${DB_ADMIN_PASS:-0ph7ZIOy8pwxVuFoovMwnC285d54CYj4}
+      POSTGRES_USER: ${DB_USER_NAME:-coder}
+      POSTGRES_PASSWORD: ${DB_USER_PASS:-replace-with-a-random-password}
       CONTAINER_NAME: coder-db
     volumes:
-      - './volumes/data/db/postgres/coder:/var/lib/postgresql/data'
+      - './volumes/data/db/postgres/coder:/var/lib/postgresql/data:z'
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${DB_ADMIN_NAME:-postgres} -d ${DB_CREATE_DATABASE_NAME:-coder}']
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - coder
 
@@ -87,7 +68,3 @@ networks:
   coder:
     name: coder
     external: false
-  proxy:
-    external: true
-  cloudflare:
-    external: true
